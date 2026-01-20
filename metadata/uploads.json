@@ -1,0 +1,27 @@
+[
+  {
+    "uuid": "f2787c6c-49a4-49e3-ae60-1101fec690d8",
+    "github_path": "uploads/2026-01-20/reel_f2787c6c-49a4-49e3-ae60-1101fec690d8.mp4",
+    "jsdelivr_url": "https://cdn.jsdelivr.net/gh/Nikhil-Nishad/Upload_Link_Generator@main/uploads/2026-01-20/reel_f2787c6c-49a4-49e3-ae60-1101fec690d8.mp4",
+    "uploaded_at": "2026-01-20T12:23:07.342Z",
+    "delete_at": "2026-01-22T12:23:10.459Z",
+    "status": "uploaded"
+  },
+  {
+    "uuid": "215c58ca-b0bd-4ba4-bcf2-f48bd0fec828",
+    "github_path": "uploads/2026-01-20/reel_215c58ca-b0bd-4ba4-bcf2-f48bd0fec828.mp4",
+    "jsdelivr_url": "https://cdn.jsdelivr.net/gh/Nikhil-Nishad/Upload_Link_Generator@main/uploads/2026-01-20/reel_215c58ca-b0bd-4ba4-bcf2-f48bd0fec828.mp4",
+    "uploaded_at": "2026-01-20T13:34:38.662Z",
+    "delete_at": "2026-01-22T13:34:41.023Z",
+    "status": "uploaded"
+  },
+  {
+    "uuid": "a4ba557e-091e-4011-bb93-a998a5f62260",
+    "github_path": "uploads/2026-01-20/reel_a4ba557e-091e-4011-bb93-a998a5f62260.mp4",
+    "jsdelivr_url": "https://cdn.jsdelivr.net/gh/Nikhil-Nishad/Upload_Link_Generator@media/uploads/2026-01-20/reel_a4ba557e-091e-4011-bb93-a998a5f62260.mp4",
+    "uploaded_at": "2026-01-20T18:29:08.518Z",
+    "delete_at": "2026-01-22T18:29:10.524Z",
+    "status": "uploaded",
+    "source": "url"
+  }
+]
