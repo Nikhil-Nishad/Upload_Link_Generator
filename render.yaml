@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: video-link-generator
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: REPO_OWNER
+        sync: false
+      - key: REPO_NAME
+        sync: false
+      - key: STORAGE_BRANCH
+        value: media
