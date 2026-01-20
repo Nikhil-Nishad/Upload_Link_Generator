@@ -15,8 +15,18 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
+// Conditional multer middleware - only for multipart requests
+const conditionalMulter = (req, res, next) => {
+    const contentType = req.get('content-type') || '';
+    if (contentType.includes('multipart/form-data')) {
+        upload.single('file')(req, res, next);
+    } else {
+        next();
+    }
+};
+
 // Routes
-app.post('/upload', upload.single('file'), async (req, res) => {
+app.post('/upload', conditionalMulter, async (req, res) => {
     try {
         let fileBuffer;
         let fileSize;
