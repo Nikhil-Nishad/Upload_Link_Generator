@@ -6,5 +6,10 @@
     "page_id": "test_page",
     "video_id": "test_video",
     "reel_id": "test_reel"
+  },
+  {
+    "uuid": "4396f3eb-f0af-4391-90ce-e4597b0cd723",
+    "upload_status": "published",
+    "published_at": "2026-01-18T11:20:36.323Z"
   }
 ]
