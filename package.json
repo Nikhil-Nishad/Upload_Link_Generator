@@ -2,7 +2,7 @@
   "name": "Upload_Link_Generator",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
