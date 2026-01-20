@@ -6,13 +6,5 @@
     "uploaded_at": "2026-01-20T12:23:07.342Z",
     "delete_at": "2026-01-22T12:23:10.459Z",
     "status": "uploaded"
-  },
-  {
-    "uuid": "4396f3eb-f0af-4391-90ce-e4597b0cd723",
-    "github_path": "uploads/TEST_CLEANUP/reel_4396f3eb-f0af-4391-90ce-e4597b0cd723.mp4",
-    "jsdelivr_url": "https://fake-url.com",
-    "uploaded_at": "2026-01-18T11:20:36.323Z",
-    "delete_at": "2026-01-18T11:20:36.323Z",
-    "status": "uploaded"
   }
 ]
