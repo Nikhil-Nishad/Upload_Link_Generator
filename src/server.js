@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
+import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from './config.js';
 import { githubService } from './services/github.js';
@@ -17,11 +18,70 @@ app.use(express.json());
 // Routes
 app.post('/upload', upload.single('file'), async (req, res) => {
     try {
-        const file = req.file;
-        const validation = validateFile(file);
+        let fileBuffer;
+        let fileSize;
+        const videoUrl = req.body.url;
 
-        if (!validation.valid) {
-            return res.status(400).json({ error: validation.error });
+        // Check if URL is provided (Google Drive or other direct download URL)
+        if (videoUrl) {
+            console.log('Downloading video from URL:', videoUrl);
+
+            try {
+                const response = await fetch(videoUrl);
+
+                if (!response.ok) {
+                    return res.status(400).json({
+                        error: 'Failed to download video from URL',
+                        details: `HTTP ${response.status}: ${response.statusText}`
+                    });
+                }
+
+                // Get content type to verify it's a video
+                const contentType = response.headers.get('content-type');
+                if (contentType && !contentType.includes('video')) {
+                    console.warn(`Warning: Content-Type is ${contentType}, expected video/*`);
+                }
+
+                // Download the file
+                const arrayBuffer = await response.arrayBuffer();
+                fileBuffer = Buffer.from(arrayBuffer);
+                fileSize = fileBuffer.length;
+
+                console.log(`Downloaded ${(fileSize / 1024 / 1024).toFixed(2)} MB from URL`);
+
+                // Validate size (80MB limit)
+                const MAX_SIZE = 80 * 1024 * 1024;
+                if (fileSize > MAX_SIZE) {
+                    return res.status(400).json({
+                        error: `File size exceeds 80MB limit (${(fileSize / 1024 / 1024).toFixed(2)} MB)`
+                    });
+                }
+
+            } catch (fetchError) {
+                console.error('Error downloading from URL:', fetchError);
+                return res.status(400).json({
+                    error: 'Failed to download video from URL',
+                    details: fetchError.message
+                });
+            }
+        }
+        // Otherwise, use uploaded file
+        else if (req.file) {
+            const file = req.file;
+            const validation = validateFile(file);
+
+            if (!validation.valid) {
+                return res.status(400).json({ error: validation.error });
+            }
+
+            fileBuffer = file.buffer;
+            fileSize = file.size;
+        }
+        // Neither URL nor file provided
+        else {
+            return res.status(400).json({
+                error: 'No file or URL provided. Please provide either a file upload or a "url" parameter.'
+            });
         }
 
         const uuid = uuidv4();
@@ -31,7 +91,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         const githubPath = `uploads/${dateStr}/${filename}`;
 
         // Upload to GitHub (Uses storageBranch from githubService)
-        await githubService.uploadFile(githubPath, file.buffer, `Upload video ${uuid}`);
+        await githubService.uploadFile(githubPath, fileBuffer, `Upload video ${uuid}`);
 
         // Generate jsDelivr URL (Uses storageBranch)
         const jsdelivrUrl = `https://cdn.jsdelivr.net/gh/${config.github.owner}/${config.github.repo}@${config.github.storageBranch}/${githubPath}`;
@@ -46,7 +106,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
             jsdelivr_url: jsdelivrUrl,
             uploaded_at: timestamp,
             delete_at: deleteAt.toISOString(),
-            status: 'uploaded'
+            status: 'uploaded',
+            source: videoUrl ? 'url' : 'file_upload'
         };
 
         // Update metadata
@@ -56,7 +117,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
             success: true,
             uuid,
             url: jsdelivrUrl,
-            expires_at: deleteAt.toISOString()
+            expires_at: deleteAt.toISOString(),
+            size_mb: (fileSize / 1024 / 1024).toFixed(2)
         });
 
     } catch (error) {
@@ -120,5 +182,26 @@ app.listen(config.port, async () => {
     console.log(`Server running on port ${config.port}`);
     if (config.github.token) {
         await githubService.ensureStorageBranch();
+
+        // Run cleanup immediately on startup (important for Render restarts)
+        console.log('Running initial cleanup check...');
+        try {
+            await cleanupService.runCleanup();
+        } catch (error) {
+            console.error('Initial cleanup failed:', error.message);
+        }
+
+        // Schedule automatic cleanup every 48 hours
+        const CLEANUP_INTERVAL = config.cleanup.retentionHours * 60 * 60 * 1000; // 48 hours in ms
+        setInterval(async () => {
+            console.log('Running scheduled cleanup...');
+            try {
+                await cleanupService.runCleanup();
+            } catch (error) {
+                console.error('Scheduled cleanup failed:', error.message);
+            }
+        }, CLEANUP_INTERVAL);
+
+        console.log(`Automatic cleanup scheduled every ${config.cleanup.retentionHours} hours`);
     }
 });

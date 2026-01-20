@@ -72,7 +72,7 @@ export const githubService = {
             // Decode content
             if (data.content && data.encoding === 'base64') {
                 const decodedContent = Buffer.from(data.content, 'base64').toString('utf-8');
-                return decodedContent;
+                return { content: decodedContent, sha: data.sha };
             }
             return null;
         } catch (error) {
