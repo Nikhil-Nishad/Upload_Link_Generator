@@ -67,6 +67,7 @@ export const githubService = {
                 repo: config.github.repo,
                 path: path,
                 branch: config.github.storageBranch,
+                t: Date.now() // Cache busting
             });
 
             // Decode content
@@ -110,6 +111,7 @@ export const githubService = {
                 repo: config.github.repo,
                 path: path,
                 branch: config.github.storageBranch,
+                t: Date.now() // Cache busting
             });
             return data.sha;
         } catch (error) {
