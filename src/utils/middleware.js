@@ -2,6 +2,15 @@
  * Production middleware utilities
  */
 
+/**
+ * Check if request is from Facebook's crawler
+ * Facebook uses 'facebookexternalhit/1.1' user-agent for scraping
+ */
+export const isFacebookCrawler = (req) => {
+    const userAgent = req.get('user-agent') || '';
+    return userAgent.toLowerCase().includes('facebookexternalhit');
+};
+
 // Simple in-memory rate limiter (suitable for single-instance free tier)
 const rateLimitStore = new Map();
 
@@ -9,6 +18,11 @@ export const createRateLimiter = (options = {}) => {
     const { windowMs = 60000, max = 10 } = options;
 
     return (req, res, next) => {
+        // Bypass rate limiting for Facebook crawler
+        if (isFacebookCrawler(req)) {
+            return next();
+        }
+
         const key = req.ip || req.connection.remoteAddress || 'unknown';
         const now = Date.now();
 

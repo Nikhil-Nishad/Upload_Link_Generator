@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
+import helmet from 'helmet';
 import multer from 'multer';
 import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,13 +15,22 @@ import {
     createRateLimiter,
     requestTimeout,
     requestLogger,
-    errorHandler
+    errorHandler,
+    isFacebookCrawler
 } from './utils/middleware.js';
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Trust proxy for Render (required for correct IP detection)
+app.set('trust proxy', 1);
+
 // Production middleware
+app.use(compression()); // gzip/deflate compression (required by Facebook crawler)
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow jsDelivr to serve videos
+    contentSecurityPolicy: false // Disable CSP for API
+}));
 app.use(cors());
 app.use(express.json());
 app.use(requestLogger());

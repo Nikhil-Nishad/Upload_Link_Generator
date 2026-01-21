@@ -9,8 +9,9 @@ const METADATA_LOCK = 'metadata_write_lock';
 
 /**
  * Exponential backoff delay calculation
+ * Base delay of 500ms for GitHub's eventual consistency
  */
-const getBackoffDelay = (attempt, baseDelay = 100) => {
+const getBackoffDelay = (attempt, baseDelay = 500) => {
     return baseDelay * Math.pow(2, attempt);
 };
 
@@ -77,6 +78,13 @@ export const metadataService = {
         try {
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
+                    // Add pre-fetch delay on retry to allow GitHub CDN to sync
+                    if (attempt > 0) {
+                        const preFetchDelay = 1000 * attempt; // 1s, 2s, 3s, 4s
+                        console.log(`Waiting ${preFetchDelay}ms for GitHub CDN sync before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, preFetchDelay));
+                    }
+
                     // ALWAYS fetch fresh data and SHA for each attempt
                     const fileData = await githubService.getFile(UPLOADS_FILE);
                     const uploads = fileData && fileData.content ? JSON.parse(fileData.content) : [];
@@ -92,11 +100,13 @@ export const metadataService = {
                     const content = JSON.stringify(uploads, null, 2);
 
                     if (fileData && fileData.sha) {
+                        // Re-fetch SHA right before update to minimize staleness window
+                        const freshSha = await githubService.getFileSha(UPLOADS_FILE);
                         await githubService.updateFile(
                             UPLOADS_FILE,
                             content,
                             `Add upload ${uploadData.uuid}`,
-                            fileData.sha
+                            freshSha || fileData.sha
                         );
                     } else {
                         await githubService.uploadFile(

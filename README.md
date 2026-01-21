@@ -20,18 +20,48 @@ A production-ready Express.js server that uploads videos to GitHub and generates
 
 ## ✨ Features
 
-- **✅ Video Upload to GitHub** - Automatically uploads `.mp4` videos to a separate storage branch
+- **✅ Video Upload to GitHub** - Uploads `.mp4` videos to a separate storage branch
 - **🌐 jsDelivr CDN URLs** - Generates direct, publicly accessible CDN URLs
+- **📁 Google Drive Support** - Upload videos directly via Google Drive file ID
+- **🔁 Duplicate Detection** - Returns cached URLs for already-uploaded files
 - **📊 Metadata Tracking** - Stores upload metadata and Facebook Reel status in JSON files
-- **🗑️ Auto-Cleanup** - Automatically deletes videos after 48 hours (only if published on Facebook)
+- **🗑️ Auto-Cleanup** - Automatically deletes videos after 48 hours (only if published)
 - **🔄 n8n Ready** - RESTful API designed for seamless n8n workflow integration
-- **🎯 Facebook Graph API Compatible** - Direct URLs that work with Facebook's 2-step Reel upload process
+- **🎯 Facebook Graph API Compatible** - Direct URLs that work with Facebook's 2-step Reel upload
+- **🕷️ Facebook Crawler Support** - Gzip compression + crawler bypass for `facebookexternalhit/1.1`
 - **💰 100% Free** - Uses GitHub (free tier) + jsDelivr (free CDN)
 - **🔒 Safe for Monetization** - Keeps video links valid until Facebook publish completes
 
 ---
 
 ## 🏗️ Architecture
+
+### Repository Structure
+
+```
+Upload_Link_Generator/
+├── src/
+│   ├── server.js              # Express server with API endpoints
+│   ├── config.js              # Environment config & validation
+│   ├── services/
+│   │   ├── github.js          # GitHub API operations (upload, delete, get)
+│   │   └── metadata.js        # Metadata CRUD with retry logic
+│   ├── utils/
+│   │   ├── middleware.js      # Rate limiter, logging, FB crawler bypass
+│   │   ├── validation.js      # File validation (size, type)
+│   │   └── googleDrive.js     # Google Drive download utilities
+│   └── cleanup/
+│       └── cleanup.js         # Auto-delete expired videos
+├── scripts/
+│   └── test_production.js     # Comprehensive test suite
+├── index.js                   # Render fallback entry point
+├── package.json               # Dependencies & scripts
+├── render.yaml                # Render deployment config
+├── .env.example               # Environment variable template
+└── README.md                  # This file
+```
+
+### GitHub Storage (media branch)
 
 ```
 GitHub Repository (Public)
@@ -41,17 +71,17 @@ GitHub Repository (Public)
     │   └── YYYY-MM-DD/
     │       └── reel_<uuid>.mp4
     └── metadata/
-        ├── uploads.json
-        └── fb_reels.json
+        ├── uploads.json       # Video metadata & expiry times
+        └── fb_reels.json      # Facebook publish status
 ```
 
 ### How It Works
 
-1. **Upload** - Video is uploaded to GitHub's `media` branch
-2. **Generate URL** - jsDelivr CDN URL is created
-3. **Track** - Metadata stored in JSON files on GitHub
-4. **Publish** - Use URL to upload to Facebook Reels
-5. **Mark Published** - Update status after successful Facebook publish
+1. **Upload** - Video is uploaded to GitHub's `media` branch  
+2. **Generate URL** - jsDelivr CDN URL is created  
+3. **Cache** - Duplicate uploads return cached URLs instantly  
+4. **Publish** - Use URL to upload to Facebook Reels  
+5. **Mark Published** - Update status after successful Facebook publish  
 6. **Auto-Delete** - Videos older than 48 hours (and marked as published) are automatically deleted
 
 ---
@@ -137,13 +167,29 @@ Server will start on `http://localhost:3000`
 
 **Endpoint:** `POST /upload`
 
-Uploads a video file to GitHub and generates a jsDelivr CDN URL.
+Uploads a video to GitHub and generates a jsDelivr CDN URL. Supports three input methods.
 
-#### cURL Example
+#### Option A: File Upload
 
 ```bash
 curl -X POST http://localhost:3000/upload \
   -F "file=@/path/to/your/video.mp4"
+```
+
+#### Option B: Google Drive File ID (Recommended for n8n)
+
+```bash
+curl -X POST http://localhost:3000/upload \
+  -H "Content-Type: application/json" \
+  -d '{"fileId": "1o4k497ewTpvRDpVbWiTKP1zVr0lr6Xdu"}'
+```
+
+#### Option C: Direct URL
+
+```bash
+curl -X POST http://localhost:3000/upload \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/video.mp4"}'
 ```
 
 #### Response
@@ -152,14 +198,14 @@ curl -X POST http://localhost:3000/upload \
 {
   "success": true,
   "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "url": "https://cdn.jsdelivr.net/gh/username/reels-videos@media/uploads/2026-01-20/reel_a1b2c3d4-e5f6-7890-abcd-ef1234567890.mp4",
-  "expires_at": "2026-01-22T14:49:51.000Z"
+  "url": "https://cdn.jsdelivr.net/gh/username/repo@media/uploads/2026-01-20/reel_a1b2c3d4-e5f6-7890-abcd-ef1234567890.mp4",
+  "expires_at": "2026-01-22T14:49:51.000Z",
+  "size_mb": "5.67",
+  "cached": false
 }
 ```
 
-#### With Google Drive File (n8n)
-
-If you have a Google Drive file ID, first download it in n8n using the **Google Drive** node, then pass the binary data to this endpoint.
+> **Note:** If the same file ID/URL was already uploaded and hasn't expired, the cached URL is returned instantly with `"cached": true`.
 
 ---
 
@@ -190,7 +236,42 @@ curl http://localhost:3000/get-url/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 ---
 
-### 3. Mark as Published
+### 3. Check Duplicate (Before Upload)
+
+**Endpoint:** `GET /check/:fileId`
+
+Check if a Google Drive file was already uploaded (useful for n8n to skip duplicates).
+
+#### cURL Example
+
+```bash
+curl http://localhost:3000/check/1o4k497ewTpvRDpVbWiTKP1zVr0lr6Xdu
+```
+
+#### Response (Exists)
+
+```json
+{
+  "exists": true,
+  "expired": false,
+  "uuid": "86211534-3502-4af0-824e-a8e96a6e548b",
+  "url": "https://cdn.jsdelivr.net/gh/username/repo@media/uploads/2026-01-21/reel_86211534-3502-4af0-824e-a8e96a6e548b.mp4",
+  "expires_at": "2026-01-23T09:51:53.612Z"
+}
+```
+
+#### Response (Not Found)
+
+```json
+{
+  "exists": false,
+  "message": "File not found in cache"
+}
+```
+
+---
+
+### 4. Mark as Published
 
 **Endpoint:** `POST /mark-published`
 
@@ -222,7 +303,7 @@ curl -X POST http://localhost:3000/mark-published \
 
 ---
 
-### 4. Trigger Cleanup
+### 5. Trigger Cleanup
 
 **Endpoint:** `POST /cleanup`
 

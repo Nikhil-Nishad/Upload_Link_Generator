@@ -39,25 +39,45 @@ export const githubService = {
     },
 
     uploadFile: async (path, content, message) => {
-        try {
-            // Content must be base64 encoded for binary files
-            const contentEncoded = Buffer.isBuffer(content)
-                ? content.toString('base64')
-                : Buffer.from(content).toString('base64');
+        const maxRetries = 3;
+        let lastError = null;
 
-            await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-                owner: config.github.owner,
-                repo: config.github.repo,
-                path: path,
-                message: message,
-                content: contentEncoded,
-                branch: config.github.storageBranch,
-            });
-            return true;
-        } catch (error) {
-            console.error(`Error uploading file to GitHub: ${path}`, error.message);
-            throw error;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                // Content must be base64 encoded for binary files
+                const contentEncoded = Buffer.isBuffer(content)
+                    ? content.toString('base64')
+                    : Buffer.from(content).toString('base64');
+
+                await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+                    owner: config.github.owner,
+                    repo: config.github.repo,
+                    path: path,
+                    message: message,
+                    content: contentEncoded,
+                    branch: config.github.storageBranch,
+                });
+                return true;
+            } catch (error) {
+                lastError = error;
+
+                // Retry on 409 (conflict) or 5xx errors
+                const isRetryable = error.status === 409 ||
+                    (error.status >= 500 && error.status < 600);
+
+                if (isRetryable && attempt < maxRetries - 1) {
+                    const delay = 100 * Math.pow(2, attempt); // 100ms, 200ms, 400ms
+                    console.log(`GitHub upload conflict/error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+
+                console.error(`Error uploading file to GitHub: ${path}`, error.message);
+                throw error;
+            }
         }
+
+        throw lastError;
     },
 
     getFile: async (path) => {
@@ -66,8 +86,11 @@ export const githubService = {
                 owner: config.github.owner,
                 repo: config.github.repo,
                 path: path,
-                branch: config.github.storageBranch,
-                t: Date.now() // Cache busting
+                ref: config.github.storageBranch,
+                headers: {
+                    'If-None-Match': '', // Bypass cache
+                    'Cache-Control': 'no-cache'
+                }
             });
 
             // Decode content
@@ -110,8 +133,11 @@ export const githubService = {
                 owner: config.github.owner,
                 repo: config.github.repo,
                 path: path,
-                branch: config.github.storageBranch,
-                t: Date.now() // Cache busting
+                ref: config.github.storageBranch,
+                headers: {
+                    'If-None-Match': '',
+                    'Cache-Control': 'no-cache'
+                }
             });
             return data.sha;
         } catch (error) {
