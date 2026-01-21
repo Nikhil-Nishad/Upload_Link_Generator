@@ -23,5 +23,17 @@
     "delete_at": "2026-01-22T18:29:10.524Z",
     "status": "uploaded",
     "source": "url"
+  },
+  {
+    "uuid": "86211534-3502-4af0-824e-a8e96a6e548b",
+    "github_path": "uploads/2026-01-21/reel_86211534-3502-4af0-824e-a8e96a6e548b.mp4",
+    "jsdelivr_url": "https://cdn.jsdelivr.net/gh/Nikhil-Nishad/Upload_Link_Generator@media/uploads/2026-01-21/reel_86211534-3502-4af0-824e-a8e96a6e548b.mp4",
+    "uploaded_at": "2026-01-21T09:51:50.400Z",
+    "delete_at": "2026-01-23T09:51:53.612Z",
+    "status": "uploaded",
+    "source": "google_drive_id",
+    "source_file_id": "1o4k497ewTpvRDpVbWiTKP1zVr0lr6Xdu",
+    "source_url": null,
+    "size_mb": "3.64"
   }
 ]
